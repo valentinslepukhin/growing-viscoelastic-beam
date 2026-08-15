@@ -169,23 +169,8 @@ Verified after the re-run — the regenerated figure reproduces the published nu
 
 ### Known difference from the published figure
 
-Panel (a) of the published `combined_figure.png` is a **different drawing** from the one this
+Panel (a) of the published `combined_figure.png` is a different drawing from the one this
 script produces: the published version shows a bent line with a dashed centerline, a red
 tangent arrow and a blue `θ(s)` label, while the script draws a filled arc annotated with `R`
 and `s`. Both are consistent with the Fig. 1 caption. Only the panel *ordering* was
-reconciled; the artwork was left alone. Decide before submission whether to redraw the
-script's cartoon or to keep the hand-made panel (a).
-
-### Repository status
-
-The GitHub repository `valentinslepukhin/growing-viscoelastic-beam` is still **private**, and
-its remote copy is still at the original commit `4c6b9b5` — it does **not** yet contain any of
-the 2026-08-03 changes above. The Data Availability URL in the paper will 404 until both the
-push and
-
-```bash
-gh repo edit valentinslepukhin/growing-viscoelastic-beam --visibility public
-```
-
-have been done. Push first: publishing the current remote would expose a version of the
-script whose panel order contradicts Fig. 1.
+reconciled here; the artwork was left alone.
