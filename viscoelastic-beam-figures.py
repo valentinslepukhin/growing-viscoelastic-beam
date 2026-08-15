@@ -1,11 +1,11 @@
 """
 Combined publication figure — growing viscoelastic beam (Fig. 1 of the paper).
 
-Layout  (2 rows × 3 cols, two-column wide):
-  col 0          col 1                    col 2
-  ─────────────────────────────────────────────────────
-  (a) cartoon    (c) φ(L) vs L/L0        (e) N_snaps + φ(T) vs gτ
-  (b) beam snap  (d) H(t) vs t (3 taus)  (f) H(T) vs gτ
+Layout  (2 rows × 3 cols, two-column wide) — row-major, matching the paper's Fig. 1:
+  col 0                  col 1                   col 2
+  ──────────────────────────────────────────────────────────────
+  (a) cartoon            (b) θ(L0,t) vs L/L0     (c) beam snap
+  (d) N_snaps vs gτ      (e) 𝓔(t) vs t (3 taus)  (f) 𝓔(T) vs gτ
 
 Solves, in the rescaled-load convention Ftilde = e^{gt} F:
     dq/dt      = -(Ftilde/tau) sin(phi)
@@ -221,9 +221,21 @@ print(f"Total sweep: {timer.time()-wall_total:.0f}s")
 
 
 # ============================================================
-# PART 3: Compute H(t) for all taus
+# PART 3: Compute the effective energy 𝓔(t) for all taus
 # ============================================================
-print("\nComputing H(t) for all tau values...")
+# Paper's functional (SI), with E playing the role of the bending modulus I:
+#
+#   𝓔 = I ∫_0^{L0} ds (1/2τ) ∫_0^t dt' e^{-(t-t')/τ} e^{-gt} /(1 - e^{-t/τ})
+#                            ( θ'(s,t) - (1 - e^{-t/τ}) e^{g(t-t')} θ'(s,t') )²
+#
+# The paper's s runs over the WHOLE beam [0, L0] (both ends torque-free,
+# mode cos(πns/L0)), while this code simulates only the half [0, L] with
+# θ(0)=0 at the midpoint, i.e. L = L0/2.  θ is odd about the midpoint, so
+# κ = θ' is even and the integrand is symmetric: the full-beam integral is
+# exactly twice the half-beam one.  Hence the factor 2 below, which cancels
+# the 1/2 in the prefactor — with E = 1 the numbers are unchanged, but the
+# expression is now the paper's, and stays correct if E is ever changed.
+print("\nComputing 𝓔(t) for all tau values...")
 for tau in tau_values_dense:
     d = data[tau]
     kh = d['kappa_hist']; th = d['t_hist']
@@ -237,15 +249,16 @@ for tau in tau_values_dense:
         kappa_now     = kh[idx_t]
         one_minus_exp = 1.0 - np.exp(-t_e / tau)
         if one_minus_exp < 1e-15: continue
-        prefactor = np.exp(-a * t_e) / (tau * one_minus_exp)
+        prefactor = E * np.exp(-a * t_e) / (2.0 * tau * one_minus_exp)
         integ_s = np.zeros(N + 1)
         for j in range(idx_t + 1):
             delta_t = t_e - th[j]
             diff    = kappa_now - one_minus_exp * np.exp(a * delta_t) * kh[j]
             integ_s += np.exp(-delta_t / tau) * diff**2 * dt_h
-        H_vals[ei] = prefactor * np.dot(integ_s, trap_w)
+        # factor 2: half-beam integral -> full-beam integral (see note above)
+        H_vals[ei] = 2.0 * prefactor * np.dot(integ_s, trap_w)
     d['H'] = H_vals
-    print(f"  gτ = {g*tau:.1f}: H(T) = {H_vals[-1]:.4f}")
+    print(f"  gτ = {g*tau:.1f}: 𝓔(T) = {H_vals[-1]:.4f}")
 
 
 # ============================================================
@@ -261,12 +274,13 @@ gs = gridspec.GridSpec(
     wspace=0.50, hspace=0.48,
 )
 
+# Row-major, matching the panel labels used in the paper's Fig. 1 caption.
 ax_a = fig.add_subplot(gs[0, 0])   # (a) cartoon
-ax_b = fig.add_subplot(gs[1, 0])   # (b) beam snap
-ax_c = fig.add_subplot(gs[0, 1])   # (c) φ(L) vs L/L0
-ax_d = fig.add_subplot(gs[1, 1])   # (d) H(t) vs t
-ax_e = fig.add_subplot(gs[0, 2])   # (e) N_snaps + φ(T) vs gτ
-ax_f = fig.add_subplot(gs[1, 2])   # (f) H(T) vs gτ
+ax_b = fig.add_subplot(gs[0, 1])   # (b) θ(L0,t) vs L/L0
+ax_c = fig.add_subplot(gs[0, 2])   # (c) beam snap
+ax_d = fig.add_subplot(gs[1, 0])   # (d) N_snaps vs gτ
+ax_e = fig.add_subplot(gs[1, 1])   # (e) 𝓔(t) vs t
+ax_f = fig.add_subplot(gs[1, 2])   # (f) 𝓔(T) vs gτ
 
 
 # ──────────────────────────────────────────────────────────────
@@ -338,8 +352,10 @@ ax.annotate('', xy=(0,  ax_len_y), xytext=(0, 0),
 
 ax.text(ax_len_x + 0.07, -0.02, r'$x$',
         ha='left', va='top', fontsize=9, style='italic')
-ax.text(0.04, ax_len_y + 0.04, r'$y$',
-        ha='left', va='bottom', fontsize=9, style='italic')
+# label to the LEFT of the arrow tip, not above it, so it does not
+# collide with the panel title
+ax.text(-0.10, ax_len_y, r'$y$',
+        ha='right', va='center', fontsize=9, style='italic')
 
 # Origin dot
 ax.plot(0, 0, 'ko', ms=2.8, zorder=7)
@@ -379,9 +395,9 @@ ax.set_ylim(y_center - ypad * 0.6, yo.max() + ypad + 0.6)
 
 
 # ──────────────────────────────────────────────────────────────
-# (b) Beam shape — first |Δφ|>π/2 snap at gτ=1
+# (c) Beam shape — first |Δθ|>π/2 snap at gτ=1
 # ──────────────────────────────────────────────────────────────
-ax = ax_b
+ax = ax_c
 if first_big_jump is not None:
     t_phys = first_big_jump['t_phys']
     growth = np.exp(g * t_phys)
@@ -399,18 +415,18 @@ if first_big_jump is not None:
             Y[i] = Y[i-1] + 0.5*(np.sin(phi_sym[i-1])+np.sin(phi_sym[i]))*growth*d_s
         ax.plot(X, Y, color=col, lw=1.7, label=lab)
 
-ax.set_xlabel(r'$X$')
-ax.set_ylabel(r'$Y$')
-ax.set_title(r'(b) snap, $g\tau\!=\!1$', pad=3)
+ax.set_title('(c)', pad=3)
 ax.set_aspect('equal', adjustable='datalim')
-ax.legend(loc='upper left', framealpha=0.9, edgecolor='none')
-ax.grid(True, alpha=0.15, lw=0.4)
+ax.axis('off')
+ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.02), ncol=2,
+          framealpha=0.0, edgecolor='none', handlelength=1.6,
+          columnspacing=1.4)
 
 
 # ──────────────────────────────────────────────────────────────
-# (c) φ(L) vs L/L0
+# (b) θ(L0,t) vs L/L0
 # ──────────────────────────────────────────────────────────────
-ax = ax_c
+ax = ax_b
 for i, tau in enumerate(tau_values_plot):
     d = data[tau]
     length = np.exp(g * d['t'])
@@ -426,8 +442,8 @@ for n_pi in range(1, 8):
         ax.axhline(val, color='gray', ls=':', lw=0.35, alpha=0.4)
 
 ax.set_xlabel(r'$L / L_0$')
-ax.set_ylabel(r'$\varphi(L_0,\, t)$')
-ax.set_title('(c)', pad=3)
+ax.set_ylabel(r'$\theta(L_0,\, t)$')
+ax.set_title('(b)', pad=3)
 ax.legend(loc='upper left', framealpha=0.9, edgecolor='none')
 ax.set_xlim(1, np.exp(g * T_final) + 3)
 ax.set_ylim(0, None)
@@ -435,9 +451,9 @@ ax.grid(True, alpha=0.15, lw=0.4)
 
 
 # ──────────────────────────────────────────────────────────────
-# (d) H(t) vs physical time t  (faint jump verticals)
+# (e) 𝓔(t) vs physical time t  (faint jump verticals)
 # ──────────────────────────────────────────────────────────────
-ax = ax_d
+ax = ax_e
 for i, tau in enumerate(tau_values_plot):
     d = data[tau]
     lbl = (f'$g\\tau = {g*tau:.0f}$' if g*tau == int(g*tau)
@@ -447,50 +463,37 @@ for i, tau in enumerate(tau_values_plot):
         ax.axvline(j_t, color=colors_3[i], lw=0.4, alpha=0.4)
 
 ax.set_xlabel(r'$t$')
-ax.set_ylabel(r'$H(t)$')
-ax.set_title('(d)', pad=3)
+ax.set_ylabel(r'$\mathcal{E}(t)$')
+ax.set_title('(e)', pad=3)
 ax.legend(loc='upper left', framealpha=0.9, edgecolor='none')
 ax.set_xlim(0, T_final)
 ax.grid(True, alpha=0.15, lw=0.4)
 
 
 # ──────────────────────────────────────────────────────────────
-# (e) #jumps (red, left) + φ(T) (blue, right) vs gτ  [log x]
+# (d) number of snaps vs gτ  [log x]
+#     The paper's caption describes this panel as N_snaps alone, so no
+#     twin φ(L0,T) axis here.
 # ──────────────────────────────────────────────────────────────
-ax = ax_e
+ax = ax_d
 tau_dense    = np.array(sorted(data.keys()))
 gtau_dense   = g * tau_dense
 n_jumps_arr  = np.array([len(data[t]['jumps'])  for t in tau_dense])
-phi_final_arr = np.array([data[t]['final_phiL'] for t in tau_dense])
 
-ax_e2 = ax.twinx()
-
-ln1 = ax.plot(gtau_dense, n_jumps_arr, 's-',
-              color='#d62728', ms=4, lw=1.4,
-              mfc='white', mew=1.0,
-              label=r'$N_{\mathrm{snaps}}$')
-ln2 = ax_e2.plot(gtau_dense, phi_final_arr, 'o-',
-                 color='#1f77b4', ms=4, lw=1.4,
-                 mfc='white', mew=1.0,
-                 label=r'$\varphi(L_0,T)$')
+ax.plot(gtau_dense, n_jumps_arr, 's-',
+        color='#d62728', ms=4, lw=1.4,
+        mfc='white', mew=1.0)
 
 ax.set_xlabel(r'$g\tau$')
-ax.set_ylabel(r'$N_{\mathrm{snaps}}$  $(|\Delta\varphi|>\pi/2)$',
-              color='#d62728', fontsize=8)
-ax_e2.set_ylabel(r'$\varphi(L_0,\, T)$', color='#1f77b4', fontsize=8)
+ax.set_ylabel(r'$N_{\mathrm{snaps}}$')
 ax.set_xscale('log')
-ax.tick_params(axis='y', colors='#d62728')
-ax_e2.tick_params(axis='y', colors='#1f77b4')
 ax.set_ylim(-0.3, None)
-ax.set_title('(e)', pad=3)
-lns = ln1 + ln2
-ax.legend(lns, [l.get_label() for l in lns],
-          loc='upper right', fontsize=7, framealpha=0.9, edgecolor='none')
+ax.set_title('(d)', pad=3)
 ax.grid(True, alpha=0.15, which='both', lw=0.4)
 
 
 # ──────────────────────────────────────────────────────────────
-# (f) H(T) vs gτ  [log x]
+# (f) 𝓔(T) vs gτ  [log x]
 # ──────────────────────────────────────────────────────────────
 ax = ax_f
 H_finals = np.array([data[tau]['H'][-1] for tau in tau_dense])
@@ -499,7 +502,7 @@ ax.plot(gtau_dense, H_finals, 'o-',
         color='#9467bd', ms=4.5, lw=1.4,
         mfc='white', mew=1.1)
 ax.set_xlabel(r'$g\tau$')
-ax.set_ylabel(r'$H(T)$')
+ax.set_ylabel(r'$\mathcal{E}(T)$')
 ax.set_title('(f)', pad=3)
 ax.set_xscale('log')
 ax.grid(True, alpha=0.15, which='both', lw=0.4)
