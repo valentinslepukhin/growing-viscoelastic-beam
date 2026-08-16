@@ -138,39 +138,4 @@ gives `F = -I π²/L²(t)`, the Euler load at the instantaneous length.
 
 ---
 
-## Changelog
 
-### 2026-08-03
-
-**Panels reordered to match the paper.** The script laid the figure out column-major
-(`(a),(c),(e)` on the top row, `(b),(d),(f)` on the bottom), so its panel labels did not
-correspond to the panels described in the Fig. 1 caption. The layout is now row-major and
-agrees with the caption; see the panel table above. The published `combined_figure.png` was
-already in the correct order — the script was the file out of sync.
-
-**Twin axis removed.** The snaps panel carried a second `φ(L₀,T)` axis that the caption does
-not mention. Panel (d) is now `N_snaps` alone.
-
-**Energy expression matched to the SI.** The code previously computed the functional without
-the `I/2` prefactor, and integrated over the simulated half-beam only. Those two omissions
-cancel exactly, so the plotted curves were always correct, but the code now writes both
-factors explicitly and stays correct if `E` is changed from 1. See the note under
-*Figure panels* above.
-
-**Relabelled** `H → 𝓔` and `φ → θ` to match the paper's symbols, and moved the `y`-axis label
-in the cartoon so it no longer collides with the panel title.
-
-**Runtime corrected** in this README: the run takes about 90 s, not the hour previously
-claimed.
-
-Verified after the re-run — the regenerated figure reproduces the published numbers exactly:
-`N_snaps` = 0, 0, 1, 2, 4, 5, 5, 5, 4, 3, 2, 1, 1, 0, 0, 0 across the `gτ` sweep;
-`𝓔(T)` peaks at 5.81 at `gτ = 3`; tip angle 18.44 at `gτ = 1`.
-
-### Known difference from the published figure
-
-Panel (a) of the published `combined_figure.png` is a different drawing from the one this
-script produces: the published version shows a bent line with a dashed centerline, a red
-tangent arrow and a blue `θ(s)` label, while the script draws a filled arc annotated with `R`
-and `s`. Both are consistent with the Fig. 1 caption. Only the panel *ordering* was
-reconciled here; the artwork was left alone.
